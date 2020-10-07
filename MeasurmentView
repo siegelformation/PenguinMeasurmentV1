@@ -1,0 +1,282 @@
+-- customer_measurment view
+CREATE OR REPLACE VIEW measurement_v1.customer_measurement AS
+SELECT *
+ , CAST(total_reward_granted * 0.025 AS FLOAT) as incentive_cost
+ , offer_total_revenue - (total_reward_granted * 0.025) as offer_total_net_revenue
+FROM
+  (SELECT
+   dd.deployment_id
+   , dd.combined_offer_date
+   , dd.customer_profile_date
+   , dm.offer_start as offer_start_date
+   , dm.offer_expiration as offer_end_date
+   , dm.deployment_status
+   , dm.status_date
+   , dm.latest_status_date
+   , fcod.customer_id
+   , dd.game_type
+   , fcod.is_control
+   , seg.segment AS reporting_subsegment
+   , cp.attributes["STRING_FIELDS"].state
+   , cp.attributes["STRING_FIELDS"].grocery_market_area
+   , cp.attributes["STRING_FIELDS"].grocery_division
+   , cp.attributes["STRING_FIELDS"].getgo_market_area
+   , cp.attributes["STRING_FIELDS"].highest_acceleration_lob_6mths
+   , cp.attributes["STRING_FIELDS"].biggest_decline_lob_6mths
+   , cp.attributes["INT_FIELDS"].fuel_trans_1mth AS cnt_fuel_visits_onemonth
+   , cp.attributes["INT_FIELDS"].getgo_trip_1mth AS cnt_getgo_onemonth
+   , cp.attributes["INT_FIELDS"].sm_cnt_categories_l3m AS cnt_supermarket_categories_threemonths
+   , cp.attributes["INT_FIELDS"].sm_cnt_weeks_l1y AS cnt_supermarket_weeks_oneyear
+   , cp.attributes["INT_FIELDS"].sm_cnt_visits_l3m AS cnt_supermarket_visits_threemonths
+   , cp.attributes["INT_FIELDS"].sm_cnt_visits_l1y AS cnt_supermarket_visits_oneyear
+   , cp.attributes["INT_FIELDS"].sm_cnt_categories_l1y AS cnt_supermarket_categories_oneyear
+   , cp.attributes["INT_FIELDS"].sm_cnt_weeks_l3m AS cnt_supermarket_weeks_threemonths
+   , cp.attributes["DOUBLE_FIELDS"].sm_sum_spend_l1y AS supermarket_spend_oneyear
+   , cp.attributes["DOUBLE_FIELDS"].sm_sum_spend_l3m AS supermarket_spend_threemonths
+   , fcod.metadata.variant_id
+   , cardinality(fcod.steps) AS cnt_steps
+   , fcod.steps[0].category_id AS step1_task_type
+   , fcod.steps[1].category_id AS step2_task_type
+   , fcod.steps[2].category_id AS step3_task_type
+   , fcod.steps[0].category_id AS step1_task_id
+   , fcod.steps[1].category_id AS step2_task_id
+   , fcod.steps[2].category_id AS step3_task_id 
+   , fcod.steps[0].cost AS step1_spend_threshold
+   , fcod.steps[1].cost AS step2_spend_threshold
+   , fcod.steps[2].cost AS step3_spend_threshold
+   , fcod.offer_reward_quantity AS total_reward_offered
+   , os.offer_status
+   , os.game_reward_type
+   , CASE WHEN os.opt_in_status = 'achieved' THEN 1
+          ELSE 0
+      END AS register
+   , DATE(os.opt_in_event_time) as registration_date
+   , CASE WHEN os.game_type in ('frequency','frequency-day-part') AND os.game_goals[0].status = 'achieved' THEN 1
+          WHEN os.game_type in ('cross-sell') AND (os.game_goals[0].status = 'achieved' OR os.game_goals[1].status = 'achieved' OR os.game_goals[2].status = 'achieved') THEN 1 
+          ELSE 0
+      END AS progress
+
+   , CASE WHEN os.game_cnt_steps >= 1 THEN os.game_goals[0].status
+      END AS step1_status
+   , CASE WHEN os.game_cnt_steps >= 2 THEN os.game_goals[1].status
+      END AS step2_status    
+   , CASE WHEN os.game_cnt_steps >= 3 THEN os.game_goals[2].status
+      END AS step3_status    
+   , CASE WHEN os.game_cnt_steps >= 4 THEN os.game_goals[3].status
+      END AS step4_status    
+   , CASE WHEN os.game_cnt_steps >= 5 THEN os.game_goals[4].status
+      END AS step5_status    
+   , CASE WHEN os.game_cnt_steps >= 6 THEN os.game_goals[5].status
+      END AS step6_status
+   , CASE WHEN os.game_cnt_steps >= 7 THEN os.game_goals[6].status
+      END AS step7_status
+   , CASE WHEN os.game_cnt_steps >= 8 THEN os.game_goals[7].status
+      END AS step8_status
+   , CASE WHEN os.game_cnt_steps >= 9 THEN os.game_goals[8].status
+      END AS step9_status
+   , CASE WHEN os.game_cnt_steps >= 10 THEN os.game_goals[9].status
+      END AS step10_status
+
+   , CASE WHEN os.game_cnt_steps >= 1 AND os.game_goals[0].status = 'achieved' THEN CAST(substring_index(game_goals[0].event_time,'T',1) AS DATE)
+      END AS step1_completion_date
+   , CASE WHEN os.game_cnt_steps >= 2 AND os.game_goals[1].status = 'achieved' THEN CAST(substring_index(game_goals[1].event_time,'T',1) AS DATE)
+      END AS step2_completion_date    
+   , CASE WHEN os.game_cnt_steps >= 3 AND os.game_goals[2].status = 'achieved' THEN CAST(substring_index(game_goals[2].event_time,'T',1) AS DATE)
+      END AS step3_completion_date    
+   , CASE WHEN os.game_cnt_steps >= 4 AND os.game_goals[3].status = 'achieved' THEN CAST(substring_index(game_goals[3].event_time,'T',1) AS DATE)
+      END AS step4_completion_date    
+   , CASE WHEN os.game_cnt_steps >= 5 AND os.game_goals[4].status = 'achieved' THEN CAST(substring_index(game_goals[4].event_time,'T',1) AS DATE)
+      END AS step5_completion_date    
+   , CASE WHEN os.game_cnt_steps >= 6 AND os.game_goals[5].status = 'achieved' THEN CAST(substring_index(game_goals[5].event_time,'T',1) AS DATE)
+      END AS step6_completion_date
+   , CASE WHEN os.game_cnt_steps >= 7 AND os.game_goals[6].status = 'achieved' THEN CAST(substring_index(game_goals[6].event_time,'T',1) AS DATE)
+      END AS step7_completion_date
+   , CASE WHEN os.game_cnt_steps >= 8 AND os.game_goals[7].status = 'achieved' THEN CAST(substring_index(game_goals[7].event_time,'T',1) AS DATE)
+      END AS step8_completion_date
+   , CASE WHEN os.game_cnt_steps >= 9 AND os.game_goals[8].status = 'achieved' THEN CAST(substring_index(game_goals[8].event_time,'T',1) AS DATE)
+      END AS step9_completion_date
+   , CASE WHEN os.game_cnt_steps >= 10 AND os.game_goals[9].status = 'achieved' THEN CAST(substring_index(game_goals[9].event_time,'T',1) AS DATE)
+      END AS step10_completion_date   
+
+   , CASE WHEN os.offer_status = 'completed' THEN 1
+          ELSE 0
+      END AS complete
+
+   , CASE WHEN os.game_cnt_steps = 10 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[9].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 9 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[8].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 8 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[7].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 7 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[6].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 6 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[5].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 5 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[4].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 4 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[3].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 3 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[2].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 2 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[1].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 1 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[0].event_time,'T',1) AS DATE)
+      END AS offer_completion_date
+   , CASE WHEN os.offer_status = 'completed' THEN os.game_reward_value
+          ELSE 0
+      END AS total_reward_granted
+   , coalesce(fwd.metrics.avg_spend_per_visit,0) AS avg_spend_visit
+   , coalesce(fwd.metrics.avg_spend_per_visit_supermarket,0) AS avg_spend_visit_supermarket
+   , coalesce(fwd.metrics.avg_spend_per_visit_cat1,0) AS avg_spend_visit_categoryone
+   , coalesce(fwd.metrics.avg_spend_per_visit_cat2,0) AS avg_spend_visit_categorytwo
+   , coalesce(fwd.metrics.avg_spend_per_visit_cat3,0) AS avg_spend_visit_categorythree
+   , coalesce(fwd.metrics.avg_items_per_visit,0) AS avg_items_visit
+   , coalesce(fwd.metrics.avg_items_per_visit_supermarket,0) AS avg_items_visit_supermarket
+   , SUM(coalesce(fwd.metrics.total_revenue,0)) AS offer_total_revenue
+   , SUM(coalesce(fwd.metrics.total_revenue_supermarket,0)) AS offer_total_revenue_supermarket
+   , SUM(coalesce(fwd.metrics.total_revenue_cat1,0)) AS offer_total_revenue_categoryone
+   , SUM(coalesce(fwd.metrics.total_revenue_cat2,0)) AS offer_total_revenue_categorytwo
+   , SUM(coalesce(fwd.metrics.total_revenue_cat3,0)) AS offer_total_revenue_categorythree
+   , SUM(coalesce(fwd.metrics.total_margin,0)) AS offer_total_margin
+   , SUM(coalesce(fwd.metrics.total_margin_supermarket,0)) AS offer_total_margin_supermarket
+   , SUM(coalesce(fwd.metrics.total_visits,0)) AS offer_total_visits  
+   , SUM(coalesce(fwd.metrics.total_visits_supermarket,0)) AS offer_total_visits_supermarket
+   , SUM(coalesce(fwd.metrics.total_visits_cat1,0)) AS offer_total_visits_categoryone
+   , SUM(coalesce(fwd.metrics.total_visits_cat2,0)) AS offer_total_visits_categorytwo
+   , SUM(coalesce(fwd.metrics.total_visits_cat3,0)) AS offer_total_visits_categorythree
+   , SUM(coalesce(fwd.metrics.total_items,0)) AS offer_total_items
+   , SUM(coalesce(fwd.metrics.total_items_supermarket,0)) AS offer_total_items_supermarket
+   , SUM(coalesce(fwd.metrics.distinct_items,0)) AS offer_total_distinct_items
+   , SUM(coalesce(fwd.metrics.distinct_items_supermarket,0)) AS offer_total_distinct_items_supermarket
+   , SUM(coalesce(fwd.metrics.distinct_categories,0)) AS offer_total_distinct_categories
+   , SUM(coalesce(fwd.metrics.distinct_categories_supermarket,0)) AS offer_total_distinct_categories_supermarket
+  FROM measurement_v1.deployment_dates dd
+  JOIN measurement_v1.deployment_metadata dm
+   ON dd.deployment_id_version = dm.deployment_id_version 
+     AND dd.game_type = dm.game_type
+  JOIN offers_v1.combined_offer_data fcod
+   ON dd.deployment_id = fcod.deployment_id 
+  JOIN offers_v1.customer_attributes cp
+   ON fcod.customer_id = cp.customer_id 
+     AND dd.customer_profile_date = cp.run_date
+  LEFT JOIN measurement_v1.customer_metrics fwd
+   ON fcod.customer_id = fwd.customer_id 
+     AND dd.deployment_id_version = fwd.deployment_id
+  LEFT JOIN measurement_v1.customer_status os
+   ON fcod.customer_id = os.customer_id 
+     AND dm.deployment_id_version = os.deployment_id 
+     AND dm.status_date = CAST(substring(os.evaluation_time,1,10) AS DATE)
+  LEFT JOIN offers_v1.customer_segments seg 
+  ON fcod.customer_id=seg.customer_id
+    AND dd.segment_date=seg.run_date
+  GROUP BY
+    dd.deployment_id
+   , dd.combined_offer_date
+   , dd.customer_profile_date
+   , dm.offer_start
+   , dm.offer_expiration
+   , dm.deployment_status
+   , dm.status_date
+   , dm.latest_status_date
+   , fcod.customer_id
+   , dd.game_type
+   , fcod.is_control
+   , seg.segment
+   , cp.attributes["STRING_FIELDS"].state
+   , cp.attributes["STRING_FIELDS"].grocery_market_area
+   , cp.attributes["STRING_FIELDS"].grocery_division
+   , cp.attributes["STRING_FIELDS"].getgo_market_area
+   , cp.attributes["STRING_FIELDS"].highest_acceleration_lob_6mths
+   , cp.attributes["STRING_FIELDS"].biggest_decline_lob_6mths
+   , cp.attributes["INT_FIELDS"].fuel_trans_1mth
+   , cp.attributes["INT_FIELDS"].getgo_trip_1mth
+   , cp.attributes["INT_FIELDS"].sm_cnt_categories_l3m
+   , cp.attributes["INT_FIELDS"].sm_cnt_weeks_l1y
+   , cp.attributes["INT_FIELDS"].sm_cnt_visits_l3m
+   , cp.attributes["INT_FIELDS"].sm_cnt_visits_l1y
+   , cp.attributes["INT_FIELDS"].sm_cnt_categories_l1y
+   , cp.attributes["INT_FIELDS"].sm_cnt_weeks_l3m
+   , cp.attributes["DOUBLE_FIELDS"].sm_sum_spend_l1y
+   , cp.attributes["DOUBLE_FIELDS"].sm_sum_spend_l3m
+   , fcod.metadata.variant_id
+   , cardinality(fcod.steps)
+   , fcod.steps[0].category_id
+   , fcod.steps[1].category_id
+   , fcod.steps[2].category_id
+   , fcod.steps[0].category_id
+   , fcod.steps[1].category_id
+   , fcod.steps[2].category_id
+   , fcod.steps[0].cost
+   , fcod.steps[1].cost
+   , fcod.steps[2].cost
+   , fcod.offer_reward_quantity
+   , os.offer_status
+   , os.game_reward_type
+   , CASE WHEN os.opt_in_status = 'achieved' THEN 1
+          ELSE 0
+      END
+   , DATE(os.opt_in_event_time)
+   , CASE WHEN os.game_type in ('frequency','frequency-day-part') AND os.game_goals[0].status = 'achieved' THEN 1
+          WHEN os.game_type in ('cross-sell') AND (os.game_goals[0].status = 'achieved' OR os.game_goals[1].status = 'achieved' OR os.game_goals[2].status = 'achieved') THEN 1 
+          ELSE 0
+      END
+
+   , CASE WHEN os.game_cnt_steps >= 1 THEN os.game_goals[0].status
+      END
+   , CASE WHEN os.game_cnt_steps >= 2 THEN os.game_goals[1].status
+      END  
+   , CASE WHEN os.game_cnt_steps >= 3 THEN os.game_goals[2].status
+      END   
+   , CASE WHEN os.game_cnt_steps >= 4 THEN os.game_goals[3].status
+      END  
+   , CASE WHEN os.game_cnt_steps >= 5 THEN os.game_goals[4].status
+      END   
+   , CASE WHEN os.game_cnt_steps >= 6 THEN os.game_goals[5].status
+      END
+   , CASE WHEN os.game_cnt_steps >= 7 THEN os.game_goals[6].status
+      END
+   , CASE WHEN os.game_cnt_steps >= 8 THEN os.game_goals[7].status
+      END
+   , CASE WHEN os.game_cnt_steps >= 9 THEN os.game_goals[8].status
+      END
+   , CASE WHEN os.game_cnt_steps >= 10 THEN os.game_goals[9].status
+      END
+
+   , CASE WHEN os.game_cnt_steps >= 1 AND os.game_goals[0].status = 'achieved' THEN CAST(substring_index(game_goals[0].event_time,'T',1) AS DATE)
+      END
+   , CASE WHEN os.game_cnt_steps >= 2 AND os.game_goals[1].status = 'achieved' THEN CAST(substring_index(game_goals[1].event_time,'T',1) AS DATE)
+      END  
+   , CASE WHEN os.game_cnt_steps >= 3 AND os.game_goals[2].status = 'achieved' THEN CAST(substring_index(game_goals[2].event_time,'T',1) AS DATE)
+      END 
+   , CASE WHEN os.game_cnt_steps >= 4 AND os.game_goals[3].status = 'achieved' THEN CAST(substring_index(game_goals[3].event_time,'T',1) AS DATE)
+      END  
+   , CASE WHEN os.game_cnt_steps >= 5 AND os.game_goals[4].status = 'achieved' THEN CAST(substring_index(game_goals[4].event_time,'T',1) AS DATE)
+      END  
+   , CASE WHEN os.game_cnt_steps >= 6 AND os.game_goals[5].status = 'achieved' THEN CAST(substring_index(game_goals[5].event_time,'T',1) AS DATE)
+      END
+   , CASE WHEN os.game_cnt_steps >= 7 AND os.game_goals[6].status = 'achieved' THEN CAST(substring_index(game_goals[6].event_time,'T',1) AS DATE)
+      END
+   , CASE WHEN os.game_cnt_steps >= 8 AND os.game_goals[7].status = 'achieved' THEN CAST(substring_index(game_goals[7].event_time,'T',1) AS DATE)
+      END
+   , CASE WHEN os.game_cnt_steps >= 9 AND os.game_goals[8].status = 'achieved' THEN CAST(substring_index(game_goals[8].event_time,'T',1) AS DATE)
+      END
+   , CASE WHEN os.game_cnt_steps >= 10 AND os.game_goals[9].status = 'achieved' THEN CAST(substring_index(game_goals[9].event_time,'T',1) AS DATE)
+      END  
+
+   , CASE WHEN os.offer_status = 'completed' THEN 1
+          ELSE 0
+      END
+
+   , CASE WHEN os.game_cnt_steps = 10 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[9].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 9 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[8].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 8 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[7].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 7 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[6].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 6 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[5].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 5 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[4].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 4 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[3].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 3 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[2].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 2 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[1].event_time,'T',1) AS DATE)
+          WHEN os.game_cnt_steps = 1 AND offer_status = 'complete' THEN CAST(substring_index(game_goals[0].event_time,'T',1) AS DATE)
+      END
+   , CASE WHEN os.offer_status = 'completed' THEN os.game_reward_value
+          ELSE 0
+      END
+   , coalesce(fwd.metrics.avg_spend_per_visit,0)
+   , coalesce(fwd.metrics.avg_spend_per_visit_supermarket,0)
+   , coalesce(fwd.metrics.avg_spend_per_visit_cat1,0)
+   , coalesce(fwd.metrics.avg_spend_per_visit_cat2,0)
+   , coalesce(fwd.metrics.avg_spend_per_visit_cat3,0)
+   , coalesce(fwd.metrics.avg_items_per_visit,0)
+   , coalesce(fwd.metrics.avg_items_per_visit_supermarket,0)
+  )x
