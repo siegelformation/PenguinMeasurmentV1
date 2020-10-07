@@ -1,0 +1,42 @@
+--deployment_metadata view
+CREATE OR REPLACE VIEW measurement_v1.deployment_metadata AS 
+SELECT
+    substring_index(a.deployment_id,'-',1) as deployment_id,
+    a.deployment_id as deployment_id_version,
+    a.game_type,
+    a.offer_start,
+    a.offer_expiration,
+    a.status_date,
+    CASE
+        WHEN status_date <  offer_start THEN 'not-started'
+        WHEN status_date >= offer_expiration   THEN 'completed'
+        ELSE 'in-progress'
+    END AS deployment_status,
+    CASE 
+        WHEN a.status_date = b.max_status_date THEN TRUE 
+        ELSE FALSE 
+    END AS latest_status_date
+FROM 
+    (SELECT DISTINCT 
+     deployment_id, 
+     game_type, 
+     offer_start, 
+     offer_expiration, 
+     CAST(substring(evaluation_time,1,10) AS DATE) as status_date
+    FROM measurement_v1.customer_status
+    WHERE offer_status != 'expired'
+    ) AS a
+INNER JOIN 
+    (SELECT 
+     deployment_id, 
+     game_type, 
+     MAX(CAST(substring(evaluation_time,1,10) AS DATE)) AS max_status_date
+    FROM measurement_v1.customer_status
+    WHERE offer_status != 'expired'
+    GROUP BY 
+     deployment_id, 
+     game_type
+    ) AS b
+ON a.deployment_id = b.deployment_id
+ AND a.game_type = b.game_type
+ORDER BY a.deployment_id, a.game_type, a.status_date
