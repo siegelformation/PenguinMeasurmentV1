@@ -1,0 +1,19 @@
+--deployment_dates view
+CREATE OR REPLACE VIEW measurement_v1.deployment_dates AS 
+SELECT
+  'D1' as deployment_id
+, 'D1v1-D1-C' as deployment_id_detail
+, 'D1v1' as deployment_id_version
+, 'cross-sell' as game_type
+, CAST('2020-09-21' AS date) as segment_date
+, CAST('2020-09-24' AS date) as combined_offer_date
+, CAST('2020-09-21' AS date) as customer_profile_date
+--UNION ALL 
+--SELECT
+  --'D2' as deployment_id
+--, 'cross-sell-D2-A' as deployment_id_detail
+--, 'D1-A' as deployment_id_version
+--, 'cross_sell' as game_type
+--, CAST('2020-08-30' AS date) as segment_date
+--, CAST('2020-08-24' AS date) as combined_offer_date
+--, CAST('2020-08-24' AS date) as customer_profile_date
